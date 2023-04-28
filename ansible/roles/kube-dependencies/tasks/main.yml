@@ -1,0 +1,51 @@
+- name: Install pre-reqs for Docker
+  apt:
+    pkg:
+      - apt-transport-https 
+      - ca-certificates 
+      - curl 
+      - software-properties-common
+
+- name: Add Docker GPG apt Key
+  apt_key:
+    url: https://download.docker.com/linux/debian/gpg
+    state: present
+
+- name: set the stable repository
+  apt_repository: 
+    repo: deb [arch=amd64] https://download.docker.com/linux/debian {{ ansible_lsb.codename }} stable
+
+- name: Update packages
+  apt:
+    update_cache: true
+    state: present
+
+- name: Install Docker Engine
+  apt:
+    pkg:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+
+- name: add Kubernetes apt-key
+  apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    validate_certs: false
+    state: present
+
+- name: add Kubernetes' APT repository
+  apt_repository:
+    repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+    state: present
+    filename: 'kubernetes'
+
+- name: install kubelet
+  apt:
+    name: kubelet=1.27.1-00
+    state: present
+    update_cache: true
+
+- name: install kubeadm
+  apt:
+    name: kubeadm=1.27.1-00
+    state: present
