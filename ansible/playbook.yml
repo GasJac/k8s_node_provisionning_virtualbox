@@ -3,5 +3,15 @@
   vars:
     ansible_ssh_private_key_file: "../tools/.ssh/id_rsa"
   roles:
-    - role: kube-dependencies
-    - role: join-cluster
+
+    - role: "kube-dependencies"
+      when: inventory_hostname in groups['worker-02']
+      become: true
+ 
+    - role: "master-issue-join"
+      when: inventory_hostname in groups['master']
+      become: true
+
+    - role: "worker-join-cluster"
+      when: inventory_hostname in groups['worker-02']
+      become: true
