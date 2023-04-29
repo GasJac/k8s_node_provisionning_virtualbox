@@ -1,0 +1,9 @@
+- name: Comment out pipeline archive in fstab
+  replace:
+    dest: /etc/fstab
+    regexp: '^//archive/pipeline'
+    replace: '#//archive/pipeline'
+  tags: update-fstab
+
+- name: swapoff -a
+  shell: swapoff -a

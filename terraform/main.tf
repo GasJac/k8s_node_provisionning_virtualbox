@@ -14,7 +14,7 @@ resource "virtualbox_vm" "node" {
   name      = "node-1"
   image     = "/home/gas/Téléchargement/6ce31aca-ac1f-4bd3-a6ff-5aabde9e3863"
   cpus      = 2
-  memory    = "512 mib"
+  memory    = "1 gib"
   #user_data = file("${path.module}/user_data")
 
   network_adapter {

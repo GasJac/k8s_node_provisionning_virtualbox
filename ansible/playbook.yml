@@ -8,10 +8,9 @@
       when: inventory_hostname in groups['worker-02']
       become: true
  
-    - role: "master-issue-join"
-      when: inventory_hostname in groups['master']
-      become: true
-
-    - role: "worker-join-cluster"
+    - role: join-cluster
+      
+    - role: "worker-post-deployment"
       when: inventory_hostname in groups['worker-02']
       become: true
+
