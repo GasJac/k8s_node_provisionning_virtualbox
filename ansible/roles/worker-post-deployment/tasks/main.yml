@@ -1,9 +1,17 @@
 - name: Comment out pipeline archive in fstab
   replace:
     dest: /etc/fstab
-    regexp: '^//archive/pipeline'
-    replace: '#//archive/pipeline'
+    regexp: '^UUID=99ef4665-8665-4d2a-bad8-76ce6daca284'
+    replace: '#UUID=99ef4665-8665-4d2a-bad8-76ce6daca284'
   tags: update-fstab
 
 - name: swapoff -a
   shell: swapoff -a
+
+- name: remove /etc/containerd/config.toml
+  shell: rm /etc/containerd/config.toml
+
+- name: Restart containerd
+  systemd:
+    name: containerd
+    state: restarted
