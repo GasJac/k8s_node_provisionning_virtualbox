@@ -1,8 +1,8 @@
 - name: Comment out pipeline archive in fstab
   replace:
     dest: /etc/fstab
-    regexp: '^UUID=99ef4665-8665-4d2a-bad8-76ce6daca284'
-    replace: '#UUID=99ef4665-8665-4d2a-bad8-76ce6daca284'
+    regexp: '^swap.img'
+    replace: '#/swap.img'
   tags: update-fstab
 
 - name: swapoff -a
@@ -15,3 +15,6 @@
   systemd:
     name: containerd
     state: restarted
+
+- name: set hostmame
+  shell: hostnamectl set-hostname worker-02
