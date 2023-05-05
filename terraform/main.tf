@@ -11,10 +11,10 @@ terraform {
 
 resource "virtualbox_vm" "node" {
   count     = 1
-  name      = "node-1"
-  image     = "/home/gas/Téléchargement/6ce31aca-ac1f-4bd3-a6ff-5aabde9e3863"
-  cpus      = 2
-  memory    = "2 gib"
+  name      = "kubernetes-worker-02"
+  image     = "/home/gas/Téléchargements/ae0a89e8-6506-4929-ba00-b9a9f602809e"
+  cpus      = 1
+  memory    = "1 gib"
   #user_data = file("${path.module}/user_data")
 
   network_adapter {
