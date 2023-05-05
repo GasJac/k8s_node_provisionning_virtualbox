@@ -12,6 +12,7 @@ read -p "Please enter the User of your K8s master : " USER
 echo $USER;
 read -s -p "Please enter the Password of your K8s master : " PASS
 
+#create a directory to store our ssh keys
 mkdir -p tools/.ssh
 
 #terraform provisioning
@@ -23,16 +24,14 @@ echo -e "\e[35mEnd of terraform provisioning"
 echo -e "\e[35mGenerating key pair\e[35m"
 rm ../tools/.ssh/id_rsa
 rm ../tools/.ssh/id_rsa.pub
+#retrieve the worker ip
 HOST=`echo $IP | cut -d '"' -f 2`
-#ssh-keygen -R "${HOST}"
-#ssh-keygen -R "${MASTER_IP}"
 ssh-keygen -f "/home/gas/.ssh/known_hosts" -R "${HOST}"
 ssh-keygen -f "/home/gas/.ssh/known_hosts" -R "${MASTER_IP}"
 ssh-keygen -t rsa -f ../tools/.ssh/id_rsa -q -P ""
 sshpass -p "vagrant" ssh-copy-id -o IdentitiesOnly=yes -i ../tools/.ssh/id_rsa.pub vagrant@$HOST
 #and master
 sshpass -p "${PASS}" ssh-copy-id -o IdentitiesOnly=yes -i ../tools/.ssh/id_rsa.pub $USER@$MASTER_IP
-
 
 #ansible deployment
 cd ../ansible
