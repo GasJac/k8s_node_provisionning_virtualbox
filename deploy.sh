@@ -26,8 +26,8 @@ rm ../tools/.ssh/id_rsa
 rm ../tools/.ssh/id_rsa.pub
 #retrieve the worker ip
 HOST=`echo $IP | cut -d '"' -f 2`
-ssh-keygen -f "/home/gas/.ssh/known_hosts" -R "${HOST}"
-ssh-keygen -f "/home/gas/.ssh/known_hosts" -R "${MASTER_IP}"
+ssh-keygen -f "~/.ssh/known_hosts" -R "${HOST}"
+ssh-keygen -f "~/.ssh/known_hosts" -R "${MASTER_IP}"
 ssh-keygen -t rsa -f ../tools/.ssh/id_rsa -q -P ""
 sshpass -p "vagrant" ssh-copy-id -o IdentitiesOnly=yes -i ../tools/.ssh/id_rsa.pub vagrant@$HOST
 #and master
