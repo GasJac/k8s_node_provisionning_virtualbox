@@ -1,0 +1,8 @@
+[master]
+master ansible_host=MASTER_IP_PLACEHOLDER ansible_user=MASTER_USER_PLACEHOLDER ansible_ssh_private_key_file=../tools/.ssh/id_rsa
+
+[worker-02]
+worker-02 ansible_host=WORKER_IP_PLACEHOLDER ansible_user=vagrant ansible_ssh_private_key_file=../tools/.ssh/id_rsa
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3

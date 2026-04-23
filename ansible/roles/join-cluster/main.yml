@@ -5,17 +5,24 @@
     - name: get join command
       shell: kubeadm token create --print-join-command
       register: join_command_raw
- 
+
     - name: set join command
       set_fact:
         join_command: "{{ join_command_raw.stdout_lines[0] }}"
- 
- 
+
 - hosts: worker-02
   become: yes
   tasks:
+    - name: reset existing node if already joined
+      shell: kubeadm reset -f
+      ignore_errors: yes
+
+    - name: remove node_joined.txt to allow re-join
+      file:
+        path: $HOME/node_joined.txt
+        state: absent
+
     - name: join cluster
       shell: "{{ hostvars['master'].join_command }} >> node_joined.txt"
       args:
         chdir: $HOME
-        creates: node_joined.txt

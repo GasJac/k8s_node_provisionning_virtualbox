@@ -10,15 +10,26 @@
       - ca-certificates 
       - curl 
       - software-properties-common
+      - gnupg
 
 - name: Add Docker GPG apt Key
-  apt_key:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
+  shell: |
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+    gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+  args:
+    creates: /etc/apt/keyrings/docker.gpg
+
+- name: Remove legacy Docker repository if present
+  file:
+    path: /etc/apt/sources.list.d/docker.list
+    state: absent
 
 - name: set the stable repository
-  apt_repository: 
-    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable
+  apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable"
+    state: present
+    filename: docker
 
 - name: Update packages
   apt:
@@ -33,24 +44,26 @@
       - containerd.io
 
 - name: add Kubernetes apt-key
-  apt_key:
-    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
-    validate_certs: false
-    state: present
+  shell: |
+    mkdir -p /etc/apt/keyrings
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | \
+    gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
 - name: add Kubernetes' APT repository
   apt_repository:
-    repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /"
     state: present
-    filename: 'kubernetes'
+    filename: kubernetes
 
 - name: install kubelet
   apt:
-    name: kubelet=1.27.1-00
+    name: kubelet=1.28.0-1.1
     state: present
     update_cache: true
 
 - name: install kubeadm
   apt:
-    name: kubeadm=1.27.1-00
+    name: kubeadm=1.28.0-1.1
     state: present

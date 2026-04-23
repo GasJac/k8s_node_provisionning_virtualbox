@@ -8,13 +8,32 @@
 - name: swapoff -a
   shell: swapoff -a
 
+- name: Load br_netfilter module
+  modprobe:
+    name: br_netfilter
+    state: present
+
+- name: Persist br_netfilter module
+  lineinfile:
+    path: /etc/modules-load.d/k8s.conf
+    line: br_netfilter
+    create: yes
+
+- name: Enable bridge-nf-call-iptables
+  sysctl:
+    name: net.bridge.bridge-nf-call-iptables
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+
 - name: remove /etc/containerd/config.toml
-  shell: rm /etc/containerd/config.toml
+  shell: rm -f /etc/containerd/config.toml
 
 - name: Restart containerd
   systemd:
     name: containerd
     state: restarted
 
-- name: set hostmame
+- name: set hostname
   shell: hostnamectl set-hostname worker-02

@@ -1,47 +1,110 @@
 #!/bin/bash
 
-echo "  _______________________________________________________________
-      |                                                             |
-      |                                                             |
-      |            K8s VirtualBox Node provider                     |
-      |_____________________________________________________________|" 
-#retrieve k8s master IP
-read -p "Please enter the Ip addresse of your K8s master : " MASTER_IP
-echo $MASTER_IP;
-read -p "Please enter the User of your K8s master : " USER
-echo $USER;
-read -s -p "Please enter the Password of your K8s master : " PASS
+REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+SSH_DIR="$REPO_DIR/tools/.ssh"
+TERRAFORM_DIR="$REPO_DIR/terraform"
+ANSIBLE_DIR="$REPO_DIR/ansible"
 
-mkdir -p tools/.ssh
+echo -e "\e[36m"
+echo "  ██╗  ██╗ █████╗ ███████╗    ██╗   ██╗██████╗  ██████╗ ██╗  ██╗"
+echo "  ██║ ██╔╝██╔══██╗██╔════╝    ██║   ██║██╔══██╗██╔═══██╗╚██╗██╔╝"
+echo "  █████╔╝ ╚█████╔╝███████╗    ██║   ██║██████╔╝██║   ██║ ╚███╔╝ "
+echo "  ██╔═██╗ ██╔══██╗╚════██║    ╚██╗ ██╔╝██╔══██╗██║   ██║ ██╔██╗ "
+echo "  ██║  ██╗╚█████╔╝███████║     ╚████╔╝ ██████╔╝╚██████╔╝██╔╝ ██╗"
+echo "  ╚═╝  ╚═╝ ╚════╝ ╚══════╝      ╚═══╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝"
+echo -e "\e[0m"
+echo -e "\e[35m  ┌─────────────────────────────────────────────────────┐"
+echo    "  │        K8s VBox — Kubernetes node provider          │"
+echo    "  │        Terraform + Ansible + VirtualBox             │"
+echo -e "  └─────────────────────────────────────────────────────┘\e[0m"
+echo ""
 
-#terraform provisioning
-cd ./terraform && bash terraform_apply.sh
-IP=`cat terraform.tfstate | grep ipv4_address | head -n1 | cut -f 2 -d ':' | cut -f 2 -d ' ' |tr ',' ' '`
-echo -e "\e[35mEnd of terraform provisioning"
+# Input
+read -p "Please enter the IP address of your K8s master : " MASTER_IP
+read -p "Please enter the User of your K8s master : " MASTER_USER
+read -s -p "Please enter the Password of your K8s master : " MASTER_PASS
+echo ""
 
-#for the first provisionning we need to generate a key pair to access the node
-echo -e "\e[35mGenerating key pair\e[35m"
-rm ../tools/.ssh/id_rsa
-rm ../tools/.ssh/id_rsa.pub
-HOST=`echo $IP | cut -d '"' -f 2`
-#ssh-keygen -R "${HOST}"
-#ssh-keygen -R "${MASTER_IP}"
-ssh-keygen -f "/home/gas/.ssh/known_hosts" -R "${HOST}"
-ssh-keygen -f "/home/gas/.ssh/known_hosts" -R "${MASTER_IP}"
-ssh-keygen -t rsa -f ../tools/.ssh/id_rsa -q -P ""
-sshpass -p "vagrant" ssh-copy-id -o IdentitiesOnly=yes -i ../tools/.ssh/id_rsa.pub vagrant@$HOST
-#and master
-sshpass -p "${PASS}" ssh-copy-id -o IdentitiesOnly=yes -i ../tools/.ssh/id_rsa.pub $USER@$MASTER_IP
+# SSH dir
+mkdir -p "$SSH_DIR"
+chmod 700 "$SSH_DIR"
 
+# ── Terraform ────────────────────────────────────────────────────────
+cd "$TERRAFORM_DIR"
+bash terraform_apply.sh
+if [ $? -ne 0 ]; then
+  echo -e "\e[31mTerraform failed, aborting.\e[0m"
+  exit 1
+fi
 
-#ansible deployment
-cd ../ansible
-#backup inventory
-cp inventaire.ini inventaire.ini.backup
-#replace host with IP of the VM
-sed -i "s|worker_2_ip|${HOST}|g" inventaire.ini
-sed -i "s|master_ip|${MASTER_IP}|g" inventaire.ini
-ansible-playbook playbook.yml -i inventaire.ini --user $USER --extra-vars "ansible_sudo_pass=${PASS}"
-ansible-playbook roles/join-cluster/main.yml -i inventaire.ini --user $USER --extra-vars "ansible_sudo_pass=${PASS}"
-#replace inventory.ini
-#mv inventaire.ini.backup inventaire.ini
+WORKER_IP=$(python3 -c "
+import json
+with open('terraform.tfstate') as f:
+    state = json.load(f)
+for r in state.get('resources', []):
+    for i in r.get('instances', []):
+        adapters = i.get('attributes', {}).get('network_adapter', [])
+        if adapters:
+            print(adapters[0].get('ipv4_address', ''))
+            exit()
+")
+
+if [ -z "$WORKER_IP" ]; then
+  echo -e "\e[31mCould not retrieve worker IP from tfstate, aborting.\e[0m"
+  exit 1
+fi
+
+echo -e "\e[35mEnd of terraform provisioning — Worker IP: $WORKER_IP\e[0m"
+
+# ── SSH keys ─────────────────────────────────────────────────────────
+echo -e "\e[35mGenerating key pair\e[0m"
+ssh-add -D 2>/dev/null
+rm -f "$SSH_DIR/id_rsa" "$SSH_DIR/id_rsa.pub"
+ssh-keygen -t rsa -f "$SSH_DIR/id_rsa" -q -N ""
+
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$WORKER_IP" 2>/dev/null
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$MASTER_IP" 2>/dev/null
+
+echo "Waiting for worker SSH to be ready..."
+for i in $(seq 1 24); do
+  ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+      -i "$SSH_DIR/id_rsa" vagrant@$WORKER_IP exit 2>/dev/null && break
+  echo "  Attempt $i/24, retrying in 10s..."
+  sleep 10
+done
+
+sshpass -p "vagrant" ssh-copy-id \
+  -o StrictHostKeyChecking=no -o IdentitiesOnly=yes \
+  -i "$SSH_DIR/id_rsa.pub" vagrant@$WORKER_IP
+
+sshpass -p "$MASTER_PASS" ssh-copy-id \
+  -o StrictHostKeyChecking=no -o IdentitiesOnly=yes \
+  -i "$SSH_DIR/id_rsa.pub" $MASTER_USER@$MASTER_IP
+
+# ── Ansible ──────────────────────────────────────────────────────────
+cd "$ANSIBLE_DIR"
+
+cp inventaire.ini.backup inventaire.ini
+sed -i "s|WORKER_IP_PLACEHOLDER|${WORKER_IP}|g"     inventaire.ini
+sed -i "s|MASTER_IP_PLACEHOLDER|${MASTER_IP}|g"     inventaire.ini
+sed -i "s|MASTER_USER_PLACEHOLDER|${MASTER_USER}|g" inventaire.ini
+
+echo -e "\e[35mRunning playbook.yml\e[0m"
+ansible-playbook playbook.yml -i inventaire.ini \
+  --extra-vars "ansible_sudo_pass=${MASTER_PASS}"
+if [ $? -ne 0 ]; then
+  echo -e "\e[31mplaybook.yml failed, aborting.\e[0m"
+  exit 1
+fi
+
+echo -e "\e[35mRunning join-cluster\e[0m"
+ansible-playbook roles/join-cluster/main.yml -i inventaire.ini \
+  --extra-vars "ansible_sudo_pass=${MASTER_PASS}"
+if [ $? -ne 0 ]; then
+  echo -e "\e[31mjoin-cluster failed.\e[0m"
+  exit 1
+fi
+
+echo -e "\e[32m"
+echo "  ✔  Worker $WORKER_IP successfully joined the cluster!"
+echo -e "\e[0m"
